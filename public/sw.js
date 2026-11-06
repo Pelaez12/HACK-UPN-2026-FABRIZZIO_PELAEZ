@@ -7,11 +7,14 @@
  * - Manejo de clics en notificaciones
  */
 
-const CACHE_NAME = 'ellie-piura-v2';
+const CACHE_NAME = 'ellie-piura-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/favicon.svg',
+  '/favicon.ico',
+  '/assets/apple-touch-icon.png',
   '/assets/croquis-piura.png',
   '/assets/logo.png',
   '/assets/icon-192.png',

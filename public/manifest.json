@@ -10,6 +10,12 @@
   "categories": ["weather", "social", "utilities"],
   "icons": [
     {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
       "src": "/assets/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
@@ -20,11 +26,17 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "shortcuts": [
     {
-      "name": "Ver Croquis",
+      "name": "Ver Croquis Seguro",
       "short_name": "Croquis",
       "description": "Rutas de evacuación y zonas seguras de Piura",
       "url": "/#croquis",
