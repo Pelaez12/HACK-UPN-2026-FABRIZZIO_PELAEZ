@@ -1,0 +1,16 @@
+# Dependencias y entornos locales
+node_modules/
+.env
+.env.local
+*.log
+npm-debug.log*
+
+# Temporales y cachés
+.DS_Store
+Thumbs.db
+stitch-extracted/
+
+# Secretos y credenciales
+*.pem
+*.key
+credentials.json

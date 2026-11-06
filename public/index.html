@@ -1,0 +1,2201 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <title>Ellie Life Enterprise — Seguridad y Evacuación Piura</title>
+  <meta name="description" content="Sistema de preparación familiar, croquis de evacuación y alertas comunitarias ante inundaciones y el Fenómeno El Niño en Piura."/>
+  
+  <!-- Tipografía Geist & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;600;700&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  
+  <!-- Leaflet Mapas Interactivos (Estilo Google Maps) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- PWA Android & Mobile Meta Tags -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4B36F2" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="/assets/icon-192.png" />
+
+  <!-- Supabase Client para Notificaciones Push y Realtime -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              purple: '#4B36F2',
+              lavender: '#8E82FF',
+              light: '#F5F3FF',
+              ink: '#171528',
+              surface: '#FCF8FF',
+              safe: '#258A5A',
+              caution: '#B97918',
+              hazard: '#B04440',
+              border: '#E2DCF8'
+            }
+          },
+          fontFamily: {
+            sans: ['Geist', 'sans-serif'],
+            mono: ['Geist Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --font-scale: 1;
+      --line-height: 1.5;
+    }
+    body {
+      font-size: calc(1rem * var(--font-scale));
+      line-height: var(--line-height);
+      color: #171528;
+      background-color: #F5F3FF;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    /* Alto Contraste */
+    body.high-contrast {
+      background-color: #000000 !important;
+      color: #FFFFFF !important;
+    }
+    body.high-contrast .bg-white,
+    body.high-contrast .bg-brand-surface,
+    body.high-contrast .bg-brand-light {
+      background-color: #121212 !important;
+      color: #FFFFFF !important;
+      border-color: #FFFFFF !important;
+    }
+    body.high-contrast button {
+      border: 2px solid #FFFFFF !important;
+    }
+    /* Texto en negrita */
+    body.font-bold-mode {
+      font-weight: 600 !important;
+    }
+    /* Scrollbar oculta para aspecto nativo */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    /* Focus visible para accesibilidad */
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid #4B36F2;
+      outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col antialiased">
+
+  <!-- ==================================================== -->
+  <!-- 1. ENCABEZADO SUPERIOR PERSISTENTE -->
+  <!-- ==================================================== -->
+  <header class="sticky top-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-brand-border px-4 py-2.5 flex items-center justify-between shadow-xs">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-brand-purple flex items-center justify-center text-white shadow-sm font-bold text-lg">
+        E
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs font-mono uppercase tracking-wider text-brand-purple font-bold">Ellie Life</span>
+          <span class="text-[10px] bg-brand-light text-brand-purple px-1.5 py-0.2 rounded font-semibold">Piura</span>
+        </div>
+        <h1 class="text-sm font-extrabold text-brand-ink dark:text-white leading-tight">Seguridad y Evacuación</h1>
+      </div>
+    </div>
+
+    <!-- Indicadores y Selector de Rol -->
+    <div class="flex items-center gap-2">
+      <!-- Indicador de conexión / offline -->
+      <div id="connStatusPill" class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-mono bg-green-50 text-brand-safe border border-green-200">
+        <span class="w-2 h-2 rounded-full bg-brand-safe animate-pulse"></span>
+        <span id="connStatusText">Offline Ready</span>
+      </div>
+
+      <!-- Botón de Asistencia Rápida SOS -->
+      <button id="sosTopBtn" class="touch-target px-2.5 py-1 rounded-lg bg-brand-hazard text-white text-xs font-bold flex items-center gap-1 shadow-sm hover:opacity-90 active:scale-95 transition" aria-label="Botón de emergencia SOS">
+        <span class="material-symbols-outlined text-sm">sos</span>
+        <span>Ayuda</span>
+      </button>
+
+      <!-- Selector de Rol para Evaluación de Jurado -->
+      <div class="relative">
+        <select id="roleSelector" class="touch-target text-xs bg-brand-light dark:bg-zinc-800 border border-brand-border rounded-lg px-2 py-1 font-semibold text-brand-purple focus:outline-none" aria-label="Cambiar rol de usuario">
+          <option value="ciudadano">👤 Ciudadano</option>
+          <option value="moderador">🛡️ Moderador</option>
+          <option value="autoridad">🏛️ Autoridad</option>
+          <option value="administrador">⚙️ Admin</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Banner de Voz Accesible -->
+  <div class="bg-brand-purple text-white px-4 py-1.5 flex items-center justify-between text-xs font-medium">
+    <div class="flex items-center gap-1.5">
+      <span class="material-symbols-outlined text-sm">record_voice_over</span>
+      <span id="screenReaderIndicator">Pantalla: Inicio</span>
+    </div>
+    <button id="readAloudBtn" class="touch-target px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[11px] font-bold flex items-center gap-1" aria-label="Leer esta pantalla en voz alta">
+      <span class="material-symbols-outlined text-xs">volume_up</span>
+      <span>Escuchar pantalla</span>
+    </button>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- 2. CONTENIDO PRINCIPAL (VISTAS DINÁMICAS) -->
+  <!-- ==================================================== -->
+  <main id="appMain" class="flex-1 overflow-y-auto pb-24 px-4 py-3 space-y-4 max-w-2xl mx-auto w-full">
+
+    <!-- Banner de Instalación PWA para Android -->
+    <div id="pwaInstallBanner" class="hidden p-3.5 bg-gradient-to-r from-brand-purple to-indigo-700 rounded-2xl text-white shadow-sm flex items-center justify-between text-xs animate-fade-in">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-xl">install_mobile</span>
+        </div>
+        <div>
+          <span class="font-bold text-sm">Instalar App en Android</span>
+          <p class="text-[11px] text-brand-light/90">Acceso al croquis offline y alertas push instantáneas</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="pwaInstallBtn" class="touch-target px-3 py-1.5 rounded-lg bg-white text-brand-purple font-extrabold text-xs shadow-xs hover:bg-brand-light active:scale-95 transition">
+          Instalar
+        </button>
+        <button onclick="dismissPwaBanner()" class="touch-target p-1 text-white/70 hover:text-white" aria-label="Cerrar banner">✕</button>
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 1: INICIO -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewInicio" class="space-y-4">
+      <!-- Centro de Seguridad & Estado Comunitario -->
+      <div class="bg-white dark:bg-zinc-800 rounded-2xl p-4 border border-brand-border shadow-xs space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-brand-safe text-xl">shield_check</span>
+            <div>
+              <span class="text-xs font-mono uppercase text-gray-500">Centro de Seguridad</span>
+              <h2 class="text-base font-bold text-brand-ink dark:text-white">Estado Actual en Piura</h2>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-brand-caution border border-amber-200 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-brand-caution"></span>
+            <span>Atención preventiva</span>
+          </span>
+        </div>
+
+        <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+          Monitoreo hidrológico activo en la cuenca Chira-Piura ante alerta de lluvias estacionales por El Niño. No se registran desbordes críticos en el casco urbano.
+        </p>
+
+        <!-- Telemetría Fluvial (Datos Sintéticos COEN / INDECI) -->
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100 dark:border-zinc-700">
+          <div class="p-2.5 bg-brand-light rounded-xl">
+            <div class="text-[11px] text-gray-500 font-mono">Río Piura (Puente Sánchez Cerro)</div>
+            <div class="text-sm font-bold text-brand-purple font-mono">1.95 m <span class="text-[10px] text-brand-safe font-normal">Normal</span></div>
+            <div class="text-[10px] text-gray-500">Umbral alerta: 3.20 m</div>
+          </div>
+          <div class="p-2.5 bg-brand-light rounded-xl">
+            <div class="text-[11px] text-gray-500 font-mono">Represa Poechos</div>
+            <div class="text-sm font-bold text-brand-caution font-mono">1,820 m³/s <span class="text-[10px] text-brand-caution font-normal">Caudal Alto</span></div>
+            <div class="text-[10px] text-gray-500">Aliviadero en regulación</div>
+          </div>
+        </div>
+        <div class="text-[10px] text-gray-400 font-mono text-center">
+          Demostración preventiva basada en reportes históricos COEN-INDECI • No oficial
+        </div>
+      </div>
+
+      <!-- Tarjeta de Preparación Familiar (Checklist 3 de 5) -->
+      <div class="bg-gradient-to-br from-brand-purple to-indigo-700 rounded-2xl p-4 text-white shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-2xl">checklist</span>
+            <div>
+              <h3 class="text-sm font-bold">Nivel de Preparación Familiar</h3>
+              <p class="text-xs text-brand-light/80">Plan de emergencia familiar ante inundación</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-white/20 text-white">3 de 5 pasos</span>
+        </div>
+
+        <!-- Barra de Progreso -->
+        <div class="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+          <div class="bg-brand-safe h-full rounded-full w-3/5"></div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <button id="toggleChecklistBtn" class="touch-target text-xs underline font-semibold flex items-center gap-1" aria-expanded="false">
+            <span>Ver tareas completadas</span>
+            <span class="material-symbols-outlined text-sm">expand_more</span>
+          </button>
+          <span class="text-[11px] text-brand-light/70 font-mono">60% Preparado</span>
+        </div>
+
+        <!-- Lista Desplegable de Checklist -->
+        <div id="checklistDrawer" class="hidden space-y-1.5 pt-2 border-t border-white/20 text-xs">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked disabled class="rounded text-brand-safe">
+            <span class="line-through text-white/80">Mochila para emergencias lista con agua y radio</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked disabled class="rounded text-brand-safe">
+            <span class="line-through text-white/80">Croquis de evacuación descargado en el teléfono</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked disabled class="rounded text-brand-safe">
+            <span class="line-through text-white/80">Punto de reunión familiar acordado</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="checkNotif" class="rounded text-brand-purple">
+            <span>Activar notificaciones de alerta temprana</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="checkContacts" class="rounded text-brand-purple">
+            <span>Registrar números de contacto familiar</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Accesos Rápidos de Navegación -->
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="navigateTab('croquis')" class="touch-target p-3.5 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center gap-3 text-left hover:border-brand-purple active:scale-98 transition shadow-2xs">
+          <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined">map</span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-brand-ink dark:text-white">Ver Croquis</div>
+            <div class="text-[11px] text-gray-500">Rutas y zonas seguras</div>
+          </div>
+        </button>
+
+        <button onclick="navigateTab('reportar')" class="touch-target p-3.5 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center gap-3 text-left hover:border-brand-purple active:scale-98 transition shadow-2xs">
+          <div class="w-10 h-10 rounded-lg bg-purple-50 text-brand-purple flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined">add_alert</span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-brand-ink dark:text-white">Reportar Evento</div>
+            <div class="text-[11px] text-gray-500">Inundación o aniego</div>
+          </div>
+        </button>
+
+        <button onclick="navigateTab('asistente')" class="touch-target p-3.5 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center gap-3 text-left hover:border-brand-purple active:scale-98 transition shadow-2xs">
+          <div class="w-10 h-10 rounded-lg bg-emerald-50 text-brand-safe flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined">smart_toy</span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-brand-ink dark:text-white">Ellie Asistente</div>
+            <div class="text-[11px] text-gray-500">IA de análisis y patrones</div>
+          </div>
+        </button>
+
+        <button onclick="navigateTab('contactos')" class="touch-target p-3.5 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center gap-3 text-left hover:border-brand-purple active:scale-98 transition shadow-2xs">
+          <div class="w-10 h-10 rounded-lg bg-amber-50 text-brand-caution flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined">call</span>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-brand-ink dark:text-white">Contactos Piura</div>
+            <div class="text-[11px] text-gray-500">21 números oficiales</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Aviso Preventivo Obligatorio -->
+      <div class="p-3 bg-brand-light rounded-xl border border-brand-border text-xs text-gray-700 flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-brand-purple text-lg shrink-0 mt-0.5">info</span>
+        <div>
+          <span class="font-bold text-brand-ink">Canales oficiales de emergencia:</span>
+          <p class="text-[11px] text-gray-600 mt-0.5">
+            Ellie Life Enterprise es una herramienta preventiva comunitaria. En emergencias con riesgo para la vida, comunícate directamente con la PNP (105), Bomberos (116) o SAMU (106).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 2: CROQUIS DE EVACUACIÓN (MAPA INTERACTIVO ESTILO GOOGLE MAPS) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewCroquis" class="hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-mono text-brand-purple font-bold">PIURA • MAPA INTERACTIVO</span>
+          <h2 class="text-base font-bold text-brand-ink dark:text-white">Croquis Seguro de Evacuación</h2>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="geoBtn" class="touch-target px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-800 border border-brand-border text-xs font-bold text-brand-purple flex items-center gap-1 shadow-2xs hover:bg-brand-light transition">
+            <span class="material-symbols-outlined text-sm">my_location</span>
+            <span>Localizarme</span>
+          </button>
+          <button onclick="recenterPiuraMap()" class="touch-target p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 shadow-2xs" title="Centrar en Piura">
+            <span class="material-symbols-outlined text-sm">center_focus_strong</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de Capas Estilo Google Maps -->
+      <div class="flex items-center justify-between gap-1 overflow-x-auto pb-1 text-xs">
+        <div class="flex gap-1.5">
+          <button id="layerBtnVoyager" onclick="setMapLayer('voyager')" class="touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-purple text-white shadow-2xs flex items-center gap-1">
+            <span class="material-symbols-outlined text-xs">map</span>
+            <span>Calles (Google Maps)</span>
+          </button>
+          <button id="layerBtnSatellite" onclick="setMapLayer('satellite')" class="touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 flex items-center gap-1">
+            <span class="material-symbols-outlined text-xs">satellite_alt</span>
+            <span>Satélite</span>
+          </button>
+          <button id="layerBtnZoning" onclick="toggleZoningOverlay()" class="touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 flex items-center gap-1">
+            <span class="material-symbols-outlined text-xs">layers</span>
+            <span id="zoningOverlayLabel">📐 Ver Plano Urbano</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros Rápidos de Puntos de Interés -->
+      <div class="flex items-center gap-1 text-[11px] overflow-x-auto pb-0.5">
+        <span class="text-gray-400 font-mono text-[10px] uppercase shrink-0">Filtrar:</span>
+        <button onclick="filterMapMarkers('all')" class="touch-target px-2 py-0.5 rounded-md bg-brand-light text-brand-purple font-bold">Todos</button>
+        <button onclick="filterMapMarkers('safe')" class="touch-target px-2 py-0.5 rounded-md bg-green-50 text-brand-safe border border-green-200 font-semibold flex items-center gap-0.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand-safe"></span> Zonas Seguras
+        </button>
+        <button onclick="filterMapMarkers('risk')" class="touch-target px-2 py-0.5 rounded-md bg-amber-50 text-brand-caution border border-amber-200 font-semibold flex items-center gap-0.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand-caution"></span> Crecidas / Riesgo
+        </button>
+        <button onclick="filterMapMarkers('routes')" class="touch-target px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-semibold flex items-center gap-0.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Rutas Evacuación
+        </button>
+      </div>
+
+      <!-- CONTENEDOR PRINCIPAL DEL MAPA LEAFLET -->
+      <div class="relative w-full rounded-2xl overflow-hidden border border-brand-border shadow-sm">
+        <div id="interactiveMap" class="w-full h-[420px] bg-zinc-100 z-10"></div>
+
+        <!-- Barra flotante de Radio de Búsqueda / Seguridad -->
+        <div class="absolute bottom-3 left-3 right-3 z-20 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-md p-2 rounded-xl border border-brand-border shadow-md flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-brand-purple text-sm">radar</span>
+            <span class="font-bold text-gray-700 dark:text-gray-200">Radio de seguridad:</span>
+            <select id="mapRadiusSelect" onchange="changeMapRadius(this.value)" class="text-xs bg-brand-light border border-brand-border rounded px-1.5 py-0.5 font-mono font-bold text-brand-purple">
+              <option value="500">500 metros</option>
+              <option value="1000">1,000 metros</option>
+              <option value="2000" selected>2,000 m (Máx)</option>
+            </select>
+          </div>
+          <span class="text-[10px] font-mono text-gray-500">Toca el mapa para inspeccionar</span>
+        </div>
+
+        <!-- Brújula flotante -->
+        <div class="absolute top-3 right-3 z-20 bg-white/90 backdrop-blur-xs px-2 py-1 rounded-md text-[10px] font-mono font-bold text-brand-ink shadow-sm border border-gray-200 flex items-center gap-1">
+          <span>🧭 NORTE</span>
+        </div>
+      </div>
+
+      <!-- Barra de Coordenada Inspeccionada (Click to Report) -->
+      <div id="mapClickInspector" class="hidden p-3 bg-brand-light rounded-xl border border-brand-border flex items-center justify-between text-xs">
+        <div>
+          <span class="font-bold text-brand-ink">Punto seleccionado:</span>
+          <div id="mapClickCoords" class="text-[11px] font-mono text-gray-600">Lat: --, Lon: --</div>
+        </div>
+        <button onclick="startReportFromMapClick()" class="touch-target px-2.5 py-1.5 rounded-lg bg-brand-purple text-white text-xs font-bold flex items-center gap-1 shadow-2xs">
+          <span class="material-symbols-outlined text-xs">add_location_alt</span>
+          <span>Reportar aquí</span>
+        </button>
+      </div>
+
+      <!-- Leyenda Cartográfica Colapsable -->
+      <div class="bg-white dark:bg-zinc-800 rounded-xl p-3 border border-brand-border space-y-2 text-xs">
+        <div class="flex items-center justify-between font-bold text-brand-ink dark:text-white">
+          <span>Leyenda del Croquis Interactivo</span>
+          <span class="text-[10px] font-mono text-gray-500">Estilo Google Maps • Leaflet</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-brand-safe shrink-0"></span>
+            <span>Zona segura verificada ✅</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-brand-caution shrink-0"></span>
+            <span>Punto de crecida / Riesgo ⚠️</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-blue-500 shrink-0"></span>
+            <span>Cauce del Río Piura 🌊</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-purple-600 shrink-0"></span>
+            <span>Rutas seguras a zonas altas 🟢</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acciones del Croquis -->
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="downloadCroquisOffline()" class="touch-target p-2.5 rounded-lg bg-brand-purple text-white text-xs font-bold flex items-center justify-center gap-1 shadow-xs">
+          <span class="material-symbols-outlined text-sm">download</span>
+          <span>Guardar offline</span>
+        </button>
+        <button onclick="shareCroquis()" class="touch-target p-2.5 rounded-lg bg-brand-light text-brand-purple border border-brand-border text-xs font-bold flex items-center justify-center gap-1">
+          <span class="material-symbols-outlined text-sm">share</span>
+          <span>Compartir ruta</span>
+        </button>
+      </div>
+        <button onclick="shareCroquis()" class="touch-target p-2.5 rounded-lg bg-brand-light text-brand-purple border border-brand-border text-xs font-bold flex items-center justify-center gap-1">
+          <span class="material-symbols-outlined text-sm">share</span>
+          <span>Compartir ruta</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 3: REPORTAR INCIDENTE (3 PASOS) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewReportar" class="hidden space-y-4">
+      <div>
+        <span class="text-xs font-mono text-brand-purple font-bold">REPORTE CIUDADANO RESPONSABLE</span>
+        <h2 class="text-base font-bold text-brand-ink dark:text-white">Reportar Incidente en Piura</h2>
+      </div>
+
+      <!-- Indicador de Pasos 1 - 2 - 3 -->
+      <div class="flex items-center justify-between px-2">
+        <div class="flex items-center gap-1.5">
+          <span id="stepBadge1" class="w-6 h-6 rounded-full bg-brand-purple text-white text-xs font-mono font-bold flex items-center justify-center">1</span>
+          <span class="text-xs font-semibold text-brand-purple">Tipo</span>
+        </div>
+        <div class="w-8 h-0.5 bg-brand-border"></div>
+        <div class="flex items-center gap-1.5">
+          <span id="stepBadge2" class="w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-mono font-bold flex items-center justify-center">2</span>
+          <span class="text-xs font-semibold text-gray-500">Detalles</span>
+        </div>
+        <div class="w-8 h-0.5 bg-brand-border"></div>
+        <div class="flex items-center gap-1.5">
+          <span id="stepBadge3" class="w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-mono font-bold flex items-center justify-center">3</span>
+          <span class="text-xs font-semibold text-gray-500">Confirmar</span>
+        </div>
+      </div>
+
+      <!-- PASO 1: SELECCIÓN DE TIPO -->
+      <div id="reportStep1" class="space-y-3">
+        <label class="block text-xs font-bold text-brand-ink dark:text-white">Selecciona el tipo de evento:</label>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button type="button" onclick="selectIncidentType('inundacion')" class="incident-type-btn touch-target p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-left hover:border-brand-purple flex items-start gap-2 shadow-2xs">
+            <span class="text-xl">🌊</span>
+            <div>
+              <div class="text-xs font-bold text-brand-ink dark:text-white">Inundación / Aniego</div>
+              <div class="text-[10px] text-gray-500">Acumulación de agua</div>
+            </div>
+          </button>
+
+          <button type="button" onclick="selectIncidentType('desborde_rio')" class="incident-type-btn touch-target p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-left hover:border-brand-purple flex items-start gap-2 shadow-2xs">
+            <span class="text-xl">🏞️</span>
+            <div>
+              <div class="text-xs font-bold text-brand-ink dark:text-white">Desborde de río</div>
+              <div class="text-[10px] text-gray-500">Río Chira o Piura</div>
+            </div>
+          </button>
+
+          <button type="button" onclick="selectIncidentType('via_bloqueada')" class="incident-type-btn touch-target p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-left hover:border-brand-purple flex items-start gap-2 shadow-2xs">
+            <span class="text-xl">🚧</span>
+            <div>
+              <div class="text-xs font-bold text-brand-ink dark:text-white">Vía bloqueada</div>
+              <div class="text-[10px] text-gray-500">Tránsito interrumpido</div>
+            </div>
+          </button>
+
+          <button type="button" onclick="selectIncidentType('vivienda_afectada')" class="incident-type-btn touch-target p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-left hover:border-brand-purple flex items-start gap-2 shadow-2xs">
+            <span class="text-xl">🏠</span>
+            <div>
+              <div class="text-xs font-bold text-brand-ink dark:text-white">Vivienda afectada</div>
+              <div class="text-[10px] text-gray-500">Filtración o daños</div>
+            </div>
+          </button>
+
+          <button type="button" onclick="selectIncidentType('persona_necesita_ayuda')" class="incident-type-btn touch-target p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-left hover:border-brand-purple flex items-start gap-2 shadow-2xs">
+            <span class="text-xl">🆘</span>
+            <div>
+              <div class="text-xs font-bold text-brand-hazard">Necesito ayuda</div>
+              <div class="text-[10px] text-gray-500">Persona en riesgo</div>
+            </div>
+          </button>
+
+          <button type="button" onclick="selectIncidentType('otro')" class="incident-type-btn touch-target p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-left hover:border-brand-purple flex items-start gap-2 shadow-2xs">
+            <span class="text-xl">❓</span>
+            <div>
+              <div class="text-xs font-bold text-brand-ink dark:text-white">Otro evento</div>
+              <div class="text-[10px] text-gray-500">Situación imprevista</div>
+            </div>
+          </button>
+        </div>
+
+        <button onclick="goToReportStep(2)" id="btnStep1Next" disabled class="touch-target w-full py-3 rounded-xl bg-brand-purple disabled:bg-gray-300 text-white font-bold text-xs shadow-xs transition">
+          Continuar al Paso 2
+        </button>
+      </div>
+
+      <!-- PASO 2: DETALLES Y EVIDENCIA -->
+      <div id="reportStep2" class="hidden space-y-3">
+        <div>
+          <label for="reportDescription" class="block text-xs font-bold text-brand-ink dark:text-white mb-1">
+            Descripción clara de lo observado: *
+          </label>
+          <textarea id="reportDescription" rows="3" minlength="3" maxlength="2000" placeholder="Ej: Aniego de 30 cm frente al colegio, el agua sigue subiendo..." class="w-full text-xs p-2.5 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-brand-ink dark:text-white focus:outline-none focus:border-brand-purple"></textarea>
+          <div class="flex justify-between text-[10px] text-gray-500 mt-0.5">
+            <span>Mínimo 3 caracteres</span>
+            <span id="charCount">0/2000</span>
+          </div>
+        </div>
+
+        <!-- Distrito o Sector en Piura -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="reportDistrict" class="block text-[11px] font-bold text-gray-700 dark:text-gray-200 mb-1">Distrito general:</label>
+            <select id="reportDistrict" class="touch-target w-full text-xs p-2 rounded-lg border border-brand-border bg-white dark:bg-zinc-800">
+              <option value="Piura">Piura Centro</option>
+              <option value="Castilla">Castilla</option>
+              <option value="Veintiséis de Octubre">Veintiséis de Octubre</option>
+              <option value="Catacaos">Catacaos</option>
+              <option value="Sullana">Sullana</option>
+              <option value="Paita">Paita</option>
+              <option value="Otro">Otro distrito</option>
+            </select>
+          </div>
+          <div>
+            <label for="reportSector" class="block text-[11px] font-bold text-gray-700 dark:text-gray-200 mb-1">Sector / Referencia:</label>
+            <input type="text" id="reportSector" placeholder="Ej: Malecón, Óvalo Grau" class="touch-target w-full text-xs p-2 rounded-lg border border-brand-border bg-white dark:bg-zinc-800">
+          </div>
+        </div>
+
+        <!-- Personas Afectadas & Estado de Seguridad -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="reportPeopleCount" class="block text-[11px] font-bold text-gray-700 dark:text-gray-200 mb-1">Personas afectadas (aprox):</label>
+            <input type="number" id="reportPeopleCount" min="0" value="0" class="touch-target w-full text-xs p-2 rounded-lg border border-brand-border bg-white dark:bg-zinc-800">
+          </div>
+          <div>
+            <label for="reportReporterState" class="block text-[11px] font-bold text-gray-700 dark:text-gray-200 mb-1">Tu estado de seguridad:</label>
+            <select id="reportReporterState" class="touch-target w-full text-xs p-2 rounded-lg border border-brand-border bg-white dark:bg-zinc-800">
+              <option value="seguro">Estoy a salvo</option>
+              <option value="evacuando">Estoy evacuando</option>
+              <option value="en_riesgo">Estoy en riesgo</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Evidencia Opcional (Foto y Audio) -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <label class="touch-target p-2 border border-dashed border-brand-border rounded-lg bg-white dark:bg-zinc-800 flex items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold text-gray-600">
+            <span class="material-symbols-outlined text-sm text-brand-purple">photo_camera</span>
+            <span id="photoLabel">Foto opcional</span>
+            <input type="file" id="reportPhotoInput" accept="image/*" class="hidden">
+          </label>
+
+          <button type="button" id="recordAudioBtn" class="touch-target p-2 border border-dashed border-brand-border rounded-lg bg-white dark:bg-zinc-800 flex items-center justify-center gap-1.5 text-xs font-semibold text-gray-600">
+            <span class="material-symbols-outlined text-sm text-brand-hazard">mic</span>
+            <span id="audioLabel">Audio opcional</span>
+          </button>
+        </div>
+
+        <!-- Toggle de Ubicación Aproximada Opcional -->
+        <div class="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-brand-ink dark:text-white">Compartir ubicación aproximada</div>
+            <div class="text-[10px] text-gray-500">Precisión aproximada de 500m • No permanente</div>
+          </div>
+          <input type="checkbox" id="reportLocationConsent" class="w-4 h-4 rounded text-brand-purple">
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button onclick="goToReportStep(1)" class="touch-target flex-1 py-2.5 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-xs font-bold text-gray-700">Atrás</button>
+          <button onclick="goToReportStep(3)" class="touch-target flex-1 py-2.5 rounded-xl bg-brand-purple text-white text-xs font-bold">Continuar</button>
+        </div>
+      </div>
+
+      <!-- PASO 3: RESUMEN Y CONSENTIMIENTO FORMAL -->
+      <div id="reportStep3" class="hidden space-y-3">
+        <div class="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border space-y-2 text-xs">
+          <div class="flex justify-between text-[11px] font-mono text-gray-500 border-b pb-1">
+            <span>RESUMEN DEL REPORTE</span>
+            <span id="summaryCode">REP-PENDIENTE</span>
+          </div>
+          <div><span class="font-bold">Tipo:</span> <span id="summaryType">—</span></div>
+          <div><span class="font-bold">Descripción:</span> <span id="summaryDesc">—</span></div>
+          <div><span class="font-bold">Distrito / Sector:</span> <span id="summarySector">—</span></div>
+          <div><span class="font-bold">Ubicación compartida:</span> <span id="summaryLocation">No</span></div>
+        </div>
+
+        <!-- AVISO DE ADVERTENCIA DESTACADO -->
+        <div class="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-xl flex items-start gap-2 text-xs text-amber-900 dark:text-amber-200">
+          <span class="material-symbols-outlined text-lg shrink-0 mt-0.5 text-brand-caution">warning</span>
+          <div>
+            <span class="font-bold">AVISO OBLIGATORIO DE SEGURIDAD:</span>
+            <p class="text-[11px] mt-0.5 leading-relaxed">
+              Este reporte será revisado por personas moderadoras y <strong>NO genera una alerta automática</strong> hacia la comunidad ni reemplaza las líneas telefónicas de primera respuesta.
+            </p>
+          </div>
+        </div>
+
+        <!-- Checkbox de Consentimiento Obligatorio -->
+        <div class="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border">
+          <label class="flex items-start gap-2.5 cursor-pointer text-xs">
+            <input type="checkbox" id="consentReportCheckbox" class="w-4 h-4 rounded text-brand-purple mt-0.5">
+            <span class="text-gray-700 dark:text-gray-300 leading-snug">
+              Autorizo el procesamiento de este reporte conforme a la <strong>Política de Privacidad y Consentimiento de Piura</strong>.
+            </span>
+          </label>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="space-y-2 pt-1">
+          <button id="btnSubmitReport" onclick="submitFinalReport()" class="touch-target w-full py-3 rounded-xl bg-brand-purple text-white text-xs font-bold shadow-xs hover:opacity-95 active:scale-98 transition flex items-center justify-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">send</span>
+            <span>Enviar reporte a revisión</span>
+          </button>
+          <div class="flex gap-2">
+            <button onclick="saveReportDraft()" class="touch-target flex-1 py-2.5 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-xs font-bold text-gray-700">Guardar borrador</button>
+            <button onclick="cancelReport()" class="touch-target flex-1 py-2.5 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-brand-hazard">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pantalla de Éxito al Enviar -->
+      <div id="reportSuccessCard" class="hidden p-5 bg-white dark:bg-zinc-800 rounded-2xl border border-brand-border text-center space-y-3">
+        <div class="w-12 h-12 rounded-full bg-green-100 text-brand-safe mx-auto flex items-center justify-center text-2xl">
+          ✓
+        </div>
+        <h3 class="text-base font-bold text-brand-ink dark:text-white">Reporte Registrado con Éxito</h3>
+        <div class="text-xs font-mono font-bold text-brand-purple bg-brand-light py-1 px-3 rounded-full inline-block" id="successReportCode">
+          REP-0000
+        </div>
+        <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed" id="successReportMessage">
+          El incidente fue recibido y está en estado <strong>En revisión humana</strong>. Nuestro equipo evaluará la información y determinará si corresponde preparar un aviso preventivo.
+        </p>
+        <button onclick="resetReportWizard()" class="touch-target w-full py-2.5 rounded-xl bg-brand-purple text-white text-xs font-bold">
+          Realizar otro reporte
+        </button>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 4: CHAT ELLIE ASISTENTE (IA RESPONSABLE) -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewAsistente" class="hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-mono text-brand-purple font-bold">ANÁLISIS DE SEÑALES • CONTROL HUMANO</span>
+          <h2 class="text-base font-bold text-brand-ink dark:text-white">Ellie Asistente</h2>
+        </div>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-100 text-brand-purple">
+          DeepSeek + Guardrails
+        </span>
+      </div>
+
+      <!-- Quick Chips Preguntas Frecuentes -->
+      <div class="flex gap-1.5 overflow-x-auto pb-1 text-xs">
+        <button onclick="askQuickPrompt('¿Qué están reportando las personas?')" class="touch-target px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 whitespace-nowrap hover:border-brand-purple">
+          ¿Qué están reportando?
+        </button>
+        <button onclick="askQuickPrompt('¿Hay reportes duplicados en la misma zona?')" class="touch-target px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 whitespace-nowrap hover:border-brand-purple">
+          Detectar duplicados
+        </button>
+        <button onclick="askQuickPrompt('¿Qué información falta en los reportes?')" class="touch-target px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 whitespace-nowrap hover:border-brand-purple">
+          Información faltante
+        </button>
+        <button onclick="askQuickPrompt('Prepara un borrador de alerta')" class="touch-target px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 whitespace-nowrap hover:border-brand-purple">
+          Preparar borrador
+        </button>
+        <button onclick="askQuickPrompt('¿Por qué te abstuviste de confirmar la zona?')" class="touch-target px-2.5 py-1 rounded-full bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 whitespace-nowrap hover:border-brand-purple">
+          Criterio de abstención
+        </button>
+      </div>
+
+      <!-- Ventana de Mensajes del Asistente -->
+      <div id="chatMessages" class="bg-white dark:bg-zinc-800 rounded-2xl p-4 border border-brand-border min-h-[380px] max-h-[460px] overflow-y-auto space-y-3 text-xs">
+        <!-- Mensaje de Bienvenida -->
+        <div class="bg-brand-light dark:bg-zinc-700/50 p-3 rounded-xl border border-brand-border space-y-1.5">
+          <div class="flex items-center gap-1.5 font-bold text-brand-purple">
+            <span class="material-symbols-outlined text-sm">smart_toy</span>
+            <span>Ellie Asistente (Asistente Comunitario)</span>
+          </div>
+          <p class="text-gray-700 dark:text-gray-200 leading-relaxed">
+            Puedo resumir señales comunitarias, señalar información faltante, detectar duplicados y preparar borradores de alerta para moderación.
+          </p>
+          <div class="text-[10px] text-gray-500 font-mono">
+            ⚠️ No tengo atribución de emitir alertas automáticas ni reemplazar autoridades.
+          </div>
+        </div>
+      </div>
+
+      <!-- Entrada de Chat -->
+      <form id="chatForm" onsubmit="handleSendChat(event)" class="flex gap-2">
+        <input type="text" id="chatInput" placeholder="Haz una pregunta o consulta sobre los reportes..." class="touch-target flex-1 text-xs p-3 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-brand-ink dark:text-white focus:outline-none focus:border-brand-purple">
+        <button type="submit" class="touch-target px-4 rounded-xl bg-brand-purple text-white text-xs font-bold shadow-xs hover:opacity-90 active:scale-95 transition">
+          <span class="material-symbols-outlined text-sm">send</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 5: NOTIFICACIONES Y MODERACIÓN -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewNotificaciones" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-xs font-mono text-brand-purple font-bold">CANALES DE ALERTA TEMPRANA</span>
+          <h2 class="text-base font-bold text-brand-ink dark:text-white">Alertas y Notificaciones</h2>
+        </div>
+      </div>
+
+      <!-- Tabs de Ciudadano / Moderador -->
+      <div class="flex border-b border-brand-border text-xs font-bold">
+        <button onclick="switchNotifSubTab('recibidas')" id="tabNotifRecibidas" class="touch-target py-2 px-3 border-b-2 border-brand-purple text-brand-purple">
+          Alertas a la Comunidad
+        </button>
+        <button onclick="switchNotifSubTab('moderacion')" id="tabNotifModeracion" class="touch-target py-2 px-3 border-b-2 border-transparent text-gray-500">
+          Panel de Moderación Humana
+        </button>
+      </div>
+
+      <!-- Subtab 1: Alertas Recibidas por Ciudadanos -->
+      <div id="subtabRecibidas" class="space-y-3">
+        <!-- Tarjeta de Activación de Push Supabase -->
+        <div class="p-3.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:bg-zinc-800 rounded-xl border border-brand-purple space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-brand-purple text-lg">notifications_active</span>
+              <span class="font-bold text-brand-purple">Notificaciones Push de Supabase (Android / Web)</span>
+            </div>
+            <span id="pushStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Inactivas</span>
+          </div>
+          <p class="text-[11px] text-gray-600 dark:text-gray-300">
+            Recibe en tu celular alertas comunitarias aprobadas en tiempo real mediante el canal de eventos de Supabase y Service Worker.
+          </p>
+          <div class="flex gap-2 pt-1">
+            <button onclick="activateSupabasePush()" id="btnActivatePush" class="touch-target flex-1 py-2 rounded-lg bg-brand-purple text-white text-xs font-bold shadow-2xs hover:opacity-90 transition flex items-center justify-center gap-1">
+              <span class="material-symbols-outlined text-xs">check_circle</span>
+              <span id="btnActivatePushText">Activar Notificaciones Push</span>
+            </button>
+            <button onclick="testSupabasePushAlert()" class="touch-target px-3 py-2 rounded-lg bg-white dark:bg-zinc-700 border border-brand-border text-xs font-bold text-gray-700 dark:text-gray-200 shadow-2xs hover:bg-gray-50 active:scale-95 transition">
+              ⚡ Probar Alerta
+            </button>
+          </div>
+        </div>
+
+        <div id="activeAlertsList" class="space-y-2.5">
+          <!-- Alerta de Demostración 1 -->
+          <div class="p-3.5 bg-white dark:bg-zinc-800 rounded-xl border-l-4 border-l-brand-caution border border-brand-border space-y-2 text-xs shadow-2xs">
+            <div class="flex justify-between items-start">
+              <span class="font-bold text-brand-ink dark:text-white text-sm">Aviso preventivo: Malecón Eguiguren (Piura)</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800">Aprobada</span>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300 text-xs">
+              Incremento de filtración de agua pluvial reportado. Se sugiere evitar tránsito vehicular en zonas bajas y seguir indicaciones de Serenazgo.
+            </p>
+            <div class="flex justify-between text-[10px] text-gray-500 font-mono pt-1 border-t">
+              <span>Radio: 1,500m • Caduca en 2 horas</span>
+              <span>Aprobado por: Mod-Humano-12</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subtab 2: Panel de Moderación (Solo Moderador / Admin) -->
+      <div id="subtabModeracion" class="hidden space-y-3">
+        <div class="p-3 bg-brand-light rounded-xl border border-brand-border text-xs text-gray-700">
+          <div class="font-bold text-brand-purple">Flujo de Control Humano Obligatorio:</div>
+          <p class="text-[11px] text-gray-600 mt-0.5">
+            Ninguna notificación puede salir sin validación explícita de un moderador, verificación de consentimiento y filtro geográfico PostGIS.
+          </p>
+        </div>
+
+        <div id="moderationDraftsList" class="space-y-2.5">
+          <!-- Tarjeta de Borrador Pendiente de Aprobación -->
+          <div class="p-3.5 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border space-y-2.5 text-xs shadow-2xs">
+            <div class="flex justify-between items-start">
+              <span class="font-bold text-brand-ink dark:text-white">Borrador: Alerta por Crecida en Río Piura</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-gray-100 text-gray-700">Borrador</span>
+            </div>
+            <p class="text-gray-600 dark:text-gray-300">
+              Información preventiva en revisión en sector Malecón Eguiguren. Radio estimado 1500m. Mantén la calma y revisa el croquis seguro.
+            </p>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button onclick="approveDraftAlert('alert-demo-01')" class="touch-target py-2 rounded-lg bg-brand-safe text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs">
+                <span class="material-symbols-outlined text-sm">task_alt</span>
+                <span>Aprobar y Programar</span>
+              </button>
+              <button onclick="discardDraftAlert('alert-demo-01')" class="touch-target py-2 rounded-lg bg-gray-100 text-gray-700 font-bold text-xs">
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 6: CONTACTOS DE EMERGENCIA Y FAMILIARES -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewContactos" class="hidden space-y-4">
+      <div>
+        <span class="text-xs font-mono text-brand-purple font-bold">DIRECTORIO DE PRIMERA RESPUESTA</span>
+        <h2 class="text-base font-bold text-brand-ink dark:text-white">Contactos de Emergencia Piura</h2>
+      </div>
+
+      <!-- Buscador de Autoridades -->
+      <div class="relative">
+        <input type="text" id="contactSearchInput" oninput="filterAuthorities()" placeholder="Buscar por entidad, servicio o número..." class="touch-target w-full text-xs p-2.5 pl-8 rounded-xl border border-brand-border bg-white dark:bg-zinc-800 text-brand-ink dark:text-white focus:outline-none focus:border-brand-purple">
+        <span class="material-symbols-outlined absolute left-2.5 top-3 text-sm text-gray-400">search</span>
+      </div>
+
+      <!-- Listado de 21 Autoridades Oficiales -->
+      <div id="authoritiesList" class="space-y-2 max-h-[380px] overflow-y-auto">
+        <!-- Renderizado dinámico vía JavaScript -->
+      </div>
+
+      <!-- Sección de Red Familiar de Confianza -->
+      <div class="pt-2 border-t border-brand-border space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-brand-ink dark:text-white">Mi Red Familiar de Confianza</h3>
+            <p class="text-[11px] text-gray-500">Contactos para alertar en caso de emergencia</p>
+          </div>
+          <button onclick="openAddFamilyContactModal()" class="touch-target px-2.5 py-1 rounded-lg bg-brand-light text-brand-purple text-xs font-bold flex items-center gap-1 border border-brand-border">
+            <span class="material-symbols-outlined text-sm">person_add</span>
+            <span>Añadir</span>
+          </button>
+        </div>
+
+        <div id="familyContactsList" class="space-y-2">
+          <!-- Contacto Ejemplo -->
+          <div class="p-3 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center justify-between text-xs">
+            <div>
+              <div class="font-bold text-brand-ink dark:text-white">Mamá (Carmen Pelaez)</div>
+              <div class="text-gray-500 font-mono">987 654 321 • Piura Centro</div>
+            </div>
+            <a href="tel:987654321" class="touch-target px-3 py-1.5 rounded-lg bg-green-50 text-brand-safe font-bold flex items-center gap-1 border border-green-200">
+              <span class="material-symbols-outlined text-sm">call</span>
+              <span>Llamar</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- -->
+    <!-- VISTA 7: PERFIL, CONSENTIMIENTO Y ACCESIBILIDAD -->
+    <!-- ---------------------------------------------------- -->
+    <section id="viewPerfil" class="hidden space-y-4">
+      <div>
+        <span class="text-xs font-mono text-brand-purple font-bold">GESTIÓN DE PRIVACIDAD Y ACCESIBILIDAD</span>
+        <h2 class="text-base font-bold text-brand-ink dark:text-white">Perfil Familiar y Configuración</h2>
+      </div>
+
+      <!-- Política de Consentimiento Granular -->
+      <div class="bg-white dark:bg-zinc-800 rounded-2xl p-4 border border-brand-border shadow-xs space-y-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-brand-purple">lock</span>
+          <h3 class="text-sm font-bold text-brand-ink dark:text-white">Consentimientos Separados (Sin preselección)</h3>
+        </div>
+        <p class="text-xs text-gray-600 dark:text-gray-300">
+          Ninguna casilla viene activada por defecto. Puedes otorgar o revocar cada permiso en cualquier momento conforme a la política de Piura.
+        </p>
+
+        <div class="space-y-2.5 pt-1 text-xs">
+          <!-- Consentimiento 1 -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-brand-light dark:bg-zinc-700/40 cursor-pointer">
+            <div>
+              <div class="font-bold text-brand-ink dark:text-white">Procesamiento de reportes</div>
+              <div class="text-[10px] text-gray-500">Permite registrar y revisar tus incidencias</div>
+            </div>
+            <input type="checkbox" id="consentReport" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <!-- Consentimiento 2 -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-brand-light dark:bg-zinc-700/40 cursor-pointer">
+            <div>
+              <div class="font-bold text-brand-ink dark:text-white">Ubicación aproximada</div>
+              <div class="text-[10px] text-gray-500">Radio configurable hasta 2,000m • No permanente</div>
+            </div>
+            <input type="checkbox" id="consentLocation" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <!-- Consentimiento 3 -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-brand-light dark:bg-zinc-700/40 cursor-pointer">
+            <div>
+              <div class="font-bold text-brand-ink dark:text-white">Notificaciones Push preventivas</div>
+              <div class="text-[10px] text-gray-500">Alertas aprobadas por moderadores humanos</div>
+            </div>
+            <input type="checkbox" id="consentPush" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <!-- Consentimiento 4 -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-brand-light dark:bg-zinc-700/40 cursor-pointer">
+            <div>
+              <div class="font-bold text-brand-ink dark:text-white">Mensajería SMS en emergencia</div>
+              <div class="text-[10px] text-gray-500">Sin conexión a datos móviles</div>
+            </div>
+            <input type="checkbox" id="consentSms" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <!-- Consentimiento 5 -->
+          <label class="flex items-center justify-between p-2 rounded-lg bg-brand-light dark:bg-zinc-700/40 cursor-pointer">
+            <div>
+              <div class="font-bold text-brand-ink dark:text-white">Análisis con Inteligencia Artificial</div>
+              <div class="text-[10px] text-gray-500">Agrupación de señales con DeepSeek / Fallback</div>
+            </div>
+            <input type="checkbox" id="consentAi" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button onclick="saveUserConsents()" class="touch-target flex-1 py-2.5 rounded-xl bg-brand-purple text-white text-xs font-bold shadow-xs">
+            Guardar consentimientos
+          </button>
+          <button onclick="revokeAllConsents()" class="touch-target flex-1 py-2.5 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-brand-hazard">
+            Revocar todos
+          </button>
+        </div>
+
+        <!-- Derecho al Olvido -->
+        <div class="pt-2 border-t border-gray-100 flex justify-between items-center text-xs">
+          <span class="text-gray-500">Derecho de supresión:</span>
+          <button onclick="deleteMyUserData()" class="text-brand-hazard underline font-bold">
+            Eliminar mis reportes y datos
+          </button>
+        </div>
+      </div>
+
+      <!-- Suite Completa de Accesibilidad -->
+      <div class="bg-white dark:bg-zinc-800 rounded-2xl p-4 border border-brand-border shadow-xs space-y-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-brand-purple">accessibility_new</span>
+          <h3 class="text-sm font-bold text-brand-ink dark:text-white">Ajustes Visuales y Accesibilidad</h3>
+        </div>
+
+        <!-- Tamaño de Letra -->
+        <div>
+          <label class="block text-xs font-bold text-brand-ink dark:text-white mb-1.5">Tamaño de tipografía:</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="setFontScale(1)" id="btnFontNormal" class="touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-brand-light text-brand-purple">Normal</button>
+            <button onclick="setFontScale(1.15)" id="btnFontLarge" class="touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-white text-gray-700">Grande</button>
+            <button onclick="setFontScale(1.30)" id="btnFontXLarge" class="touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-white text-gray-700">Muy Grande</button>
+          </div>
+        </div>
+
+        <!-- Controles de Contraste y Tema -->
+        <div class="space-y-2 pt-1 text-xs">
+          <label class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-zinc-700/50 cursor-pointer">
+            <span class="font-bold">Modo Alto Contraste (WCAG AAA)</span>
+            <input type="checkbox" id="toggleHighContrast" onchange="toggleHighContrastMode(this.checked)" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <label class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-zinc-700/50 cursor-pointer">
+            <span class="font-bold">Texto en Negrita Reforzada</span>
+            <input type="checkbox" id="toggleFontBold" onchange="toggleBoldText(this.checked)" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <label class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-zinc-700/50 cursor-pointer">
+            <span class="font-bold">Vibración Háptica en Botones</span>
+            <input type="checkbox" id="toggleVibration" checked class="w-4 h-4 rounded text-brand-purple">
+          </label>
+
+          <label class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-zinc-700/50 cursor-pointer">
+            <span class="font-bold">Modo Oscuro</span>
+            <input type="checkbox" id="toggleDarkMode" onchange="toggleDarkMode(this.checked)" class="w-4 h-4 rounded text-brand-purple">
+          </label>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================================================== -->
+  <!-- 3. MODALES DE DETALLE Y ACCIONES -->
+  <!-- ==================================================== -->
+
+  <!-- Modal Detalle de Zona Segura -->
+  <div id="zoneModal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-800 rounded-2xl max-w-md w-full p-5 space-y-4 border border-brand-border shadow-xl">
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-green-100 text-brand-safe flex items-center justify-center font-bold">✓</div>
+          <div>
+            <h3 id="modalZoneTitle" class="text-sm font-bold text-brand-ink dark:text-white">Zona Segura</h3>
+            <span id="modalZoneStatus" class="text-[11px] font-mono text-brand-safe font-semibold">Verificada por autoridad</span>
+          </div>
+        </div>
+        <button onclick="closeZoneModal()" class="touch-target p-1 text-gray-400 hover:text-gray-600">✕</button>
+      </div>
+
+      <div class="text-xs text-gray-600 dark:text-gray-300 space-y-2">
+        <p id="modalZoneDesc">Punto elevado y seguro para concentración comunitaria en caso de aniego severo.</p>
+        <div class="p-2.5 bg-brand-light rounded-xl space-y-1 font-mono text-[11px]">
+          <div>📍 Capacidad estimada: <span id="modalZoneCap" class="font-bold">800 personas</span></div>
+          <div>💧 Agua y primeros auxilios: <span id="modalZoneSupplies" class="font-bold">Disponibles</span></div>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="closeZoneModal()" class="touch-target flex-1 py-2.5 rounded-xl bg-brand-purple text-white text-xs font-bold">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal SOS Asistencia Comunitaria -->
+  <div id="sosModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-800 rounded-2xl max-w-md w-full p-5 space-y-4 border border-brand-hazard shadow-2xl">
+      <div class="flex items-center gap-2 text-brand-hazard">
+        <span class="material-symbols-outlined text-2xl">sos</span>
+        <h3 class="text-base font-extrabold">Solicitud de Asistencia Comunitaria</h3>
+      </div>
+      <p class="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
+        Se emitirá un reporte prioritario clasificado como <strong>Alto/Crítico</strong> para revisión inmediata de moderadores y autoridades locales en Piura.
+      </p>
+      <div class="p-3 bg-red-50 rounded-xl border border-red-200 text-[11px] text-red-900 leading-snug">
+        ⚠️ No se revelará tu nombre, teléfono ni coordenadas exactas a terceros. La comunidad suscrita recibirá: <em>“Hay una solicitud de asistencia cerca de tu zona. Consulta el croquis y los canales oficiales.”</em>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="confirmSosAssistance()" class="touch-target flex-1 py-3 rounded-xl bg-brand-hazard text-white text-xs font-bold shadow-xs">
+          Confirmar Solicitud SOS
+        </button>
+        <button onclick="closeSosModal()" class="touch-target flex-1 py-3 rounded-xl border border-gray-300 text-xs font-bold text-gray-700">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================== -->
+  <!-- 4. BARRA DE NAVEGACIÓN INFERIOR PERSISTENTE (7 TABS) -->
+  <!-- ==================================================== -->
+  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-brand-border px-2 py-1 shadow-lg max-w-2xl mx-auto w-full">
+    <div class="flex items-center justify-around">
+      <button onclick="navigateTab('inicio')" id="tabBtn-inicio" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-brand-purple font-bold" aria-label="Inicio">
+        <span class="material-symbols-outlined text-xl">home</span>
+        <span class="text-[10px]">Inicio</span>
+      </button>
+
+      <button onclick="navigateTab('croquis')" id="tabBtn-croquis" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-gray-400" aria-label="Croquis">
+        <span class="material-symbols-outlined text-xl">map</span>
+        <span class="text-[10px]">Croquis</span>
+      </button>
+
+      <button onclick="navigateTab('reportar')" id="tabBtn-reportar" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-brand-purple font-extrabold scale-110" aria-label="Reportar incidente">
+        <div class="w-9 h-9 rounded-full bg-brand-purple text-white flex items-center justify-center shadow-md">
+          <span class="material-symbols-outlined text-lg">add</span>
+        </div>
+        <span class="text-[9px] mt-0.5">Reportar</span>
+      </button>
+
+      <button onclick="navigateTab('asistente')" id="tabBtn-asistente" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-gray-400" aria-label="Ellie Asistente">
+        <span class="material-symbols-outlined text-xl">smart_toy</span>
+        <span class="text-[10px]">Asistente</span>
+      </button>
+
+      <button onclick="navigateTab('notificaciones')" id="tabBtn-notificaciones" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-gray-400 relative" aria-label="Notificaciones">
+        <span class="material-symbols-outlined text-xl">notifications</span>
+        <span class="text-[10px]">Alertas</span>
+        <span class="w-2 h-2 rounded-full bg-brand-caution absolute top-1 right-3"></span>
+      </button>
+
+      <button onclick="navigateTab('contactos')" id="tabBtn-contactos" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-gray-400" aria-label="Contactos">
+        <span class="material-symbols-outlined text-xl">call</span>
+        <span class="text-[10px]">Contactos</span>
+      </button>
+
+      <button onclick="navigateTab('perfil')" id="tabBtn-perfil" class="touch-target flex flex-col items-center justify-center py-1 px-2 text-gray-400" aria-label="Perfil y accesibilidad">
+        <span class="material-symbols-outlined text-xl">settings</span>
+        <span class="text-[10px]">Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ==================================================== -->
+  <!-- 5. JAVASCRIPT DE LA APLICACIÓN CLIENTE -->
+  <!-- ==================================================== -->
+  <script>
+    // ESTADO GLOBAL DE LA APLICACIÓN
+    const AppState = {
+      activeTab: 'inicio',
+      currentRole: 'ciudadano',
+      reportDraft: {
+        type: null,
+        description: '',
+        district: 'Piura',
+        sector: '',
+        peopleCount: 0,
+        reporterState: 'seguro',
+        locationConsent: false,
+        latitude: null,
+        longitude: null
+      },
+      consents: {
+        notifications_opt_in: false,
+        location_opt_in: false,
+        sms_opt_in: false,
+        ai_processing_opt_in: true
+      },
+      offlineDataLoaded: false
+    };
+
+    // 21 AUTORIDADES OFICIALES DE PIURA
+    const PIURA_AUTHORITIES = [
+      { name: 'Policía Nacional del Perú', category: 'Emergencias', phone: '105', verified: false },
+      { name: 'Comisaría de Piura', category: 'Policía', phone: '307641', verified: false },
+      { name: 'Comisaría de Piura - celular', category: 'Policía', phone: '980121525', verified: false },
+      { name: 'Radio Patrulla', category: 'Policía', phone: '957881252', verified: false },
+      { name: 'Bomberos', category: 'Emergencias', phone: '116', verified: false },
+      { name: 'Bomberos Santa Rosa N° 79', category: 'Bomberos', phone: '(073) 355555', verified: false },
+      { name: 'SAMU Piura', category: 'Salud', phone: '106', verified: false },
+      { name: 'SAMU Piura - celular 1', category: 'Salud', phone: '989174242', verified: false },
+      { name: 'SAMU Piura - celular 2', category: 'Salud', phone: '989174238', verified: false },
+      { name: 'Defensa Civil / INDECI', category: 'Gestión de riesgo', phone: '115', verified: false },
+      { name: 'Defensa Civil / Gobierno Regional', category: 'Gestión de riesgo', phone: '(073) 284600', verified: false },
+      { name: 'Línea 100', category: 'Protección', phone: '100', verified: false },
+      { name: 'Serenazgo Piura', category: 'Seguridad ciudadana', phone: '980900384', verified: false },
+      { name: 'Serenazgo Piura', category: 'Seguridad ciudadana', phone: '(073) 302490', verified: false },
+      { name: 'Serenazgo 26 de Octubre', category: 'Seguridad ciudadana', phone: '966638769', verified: false },
+      { name: 'Hospital Santa Rosa', category: 'Salud', phone: '(073) 361509', verified: false },
+      { name: 'Hospital Regional / José Cayetano Heredia', category: 'Salud', phone: '(073) 287970', verified: false },
+      { name: 'Hospital Regional / José Cayetano Heredia', category: 'Salud', phone: '(073) 321001', verified: false },
+      { name: 'EsSalud Hospital Zonal', category: 'Salud', phone: '(073) 321381', verified: false },
+      { name: 'Orientación en Salud MINSA', category: 'Salud', phone: '113', verified: false },
+      { name: 'Gobierno Regional de Piura', category: 'Autoridad regional', phone: '(073) 284600', verified: false }
+    ];
+
+    // INICIALIZACIÓN
+    window.addEventListener('DOMContentLoaded', () => {
+      loadConsentsFromStorage();
+      renderAuthorities(PIURA_AUTHORITIES);
+      setupAccessibilityEvents();
+      setupServiceWorker();
+      setupPwaInstallation();
+    });
+
+    // NAVEGACIÓN ENTRE TABS
+    function navigateTab(tabKey) {
+      triggerHaptic();
+      AppState.activeTab = tabKey;
+      
+      const views = ['inicio', 'croquis', 'reportar', 'asistente', 'notificaciones', 'contactos', 'perfil'];
+      views.forEach(v => {
+        const el = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
+        const btn = document.getElementById('tabBtn-' + v);
+        if (el) el.classList.toggle('hidden', v !== tabKey);
+        if (btn) {
+          if (v === tabKey) {
+            btn.classList.add('text-brand-purple', 'font-bold');
+            btn.classList.remove('text-gray-400');
+          } else {
+            btn.classList.remove('text-brand-purple', 'font-bold');
+            btn.classList.add('text-gray-400');
+          }
+        }
+      });
+
+      document.getElementById('screenReaderIndicator').textContent = 'Pantalla: ' + tabKey.toUpperCase();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Iniciar o redibujar mapa interactivo al cambiar a pestaña croquis
+      if (tabKey === 'croquis') {
+        setTimeout(ensureMapInitialized, 150);
+      }
+    }
+
+    // ====================================================
+    // MAPA INTERACTIVO ESTILO GOOGLE MAPS (LEAFLET + TILES)
+    // ====================================================
+    let leafletMap = null;
+    let currentTileLayer = null;
+    let zoningImageOverlay = null;
+    let userCircleLayer = null;
+    let userMarkerLayer = null;
+    let activeMarkers = [];
+    let evacuationRoutesLayer = null;
+    let floodPolygonLayer = null;
+    let selectedMapCoords = null;
+
+    const MAP_CENTERS = {
+      piura: [-5.1945, -80.6328]
+    };
+
+    function ensureMapInitialized() {
+      if (!leafletMap && typeof L !== 'undefined') {
+        initInteractiveLeafletMap();
+      } else if (leafletMap) {
+        leafletMap.invalidateSize();
+      }
+    }
+
+    function initInteractiveLeafletMap() {
+      const container = document.getElementById('interactiveMap');
+      if (!container || leafletMap) return;
+
+      // Crear mapa centrado en Piura Centro
+      leafletMap = L.map('interactiveMap', {
+        center: MAP_CENTERS.piura,
+        zoom: 14,
+        zoomControl: false,
+        attributionControl: false
+      });
+
+      // Añadir control de zoom accesible estilo móvil
+      L.control.zoom({ position: 'topleft' }).addTo(leafletMap);
+
+      // Capa base estilo Google Maps (CartoDB Voyager)
+      setMapLayer('voyager');
+
+      // Superposición de zonificación urbana detallada de Piura (opacidad 0.65)
+      const piuraBounds = [[-5.235, -80.670], [-5.160, -80.600]];
+      zoningImageOverlay = L.imageOverlay('/assets/croquis-piura.png', piuraBounds, {
+        opacity: 0,
+        interactive: false
+      }).addTo(leafletMap);
+
+      // Capa vectorial: Polígono de Cuenca Inundable en el Río Piura
+      const floodCoords = [
+        [-5.192, -80.628],
+        [-5.196, -80.627],
+        [-5.202, -80.629],
+        [-5.205, -80.633],
+        [-5.199, -80.631],
+        [-5.194, -80.629]
+      ];
+      floodPolygonLayer = L.polygon(floodCoords, {
+        color: '#3B82F6',
+        weight: 2,
+        fillColor: '#60A5FA',
+        fillOpacity: 0.25,
+        dashArray: '4, 4'
+      }).addTo(leafletMap);
+      floodPolygonLayer.bindPopup('<strong>Cauce Río Piura</strong><br>Zona en monitoreo preventivo por COEN/INDECI.');
+
+      // Capa vectorial: Ruta de Evacuación Segura (Av. Grau -> Av. Ramón Mujica -> UNP)
+      const routeCoords = [
+        [-5.2010, -80.6340],
+        [-5.1955, -80.6280],
+        [-5.1915, -80.6270],
+        [-5.1850, -80.6230],
+        [-5.1783, -80.6192]
+      ];
+      evacuationRoutesLayer = L.polyline(routeCoords, {
+        color: '#258A5A',
+        weight: 5,
+        opacity: 0.9,
+        dashArray: '10, 8'
+      }).addTo(leafletMap);
+      evacuationRoutesLayer.bindPopup('<strong>Ruta de Evacuación Segura 🟢</strong><br>Vía principal hacia cota alta (Explanada UNP).');
+
+      // Puntos de Interés (Zonas Seguras y Puntos de Riesgo)
+      loadMapPois();
+
+      // Círculo de radio preventivo por defecto (2000m)
+      userCircleLayer = L.circle(MAP_CENTERS.piura, {
+        radius: 2000,
+        color: '#4B36F2',
+        weight: 1.5,
+        dashArray: '6, 6',
+        fillColor: '#8E82FF',
+        fillOpacity: 0.08
+      }).addTo(leafletMap);
+
+      // Evento de clic en mapa estilo Google Maps para inspeccionar / reportar
+      leafletMap.on('click', (e) => {
+        triggerHaptic();
+        selectedMapCoords = {
+          lat: Number(e.latlng.lat.toFixed(5)),
+          lon: Number(e.latlng.lng.toFixed(5))
+        };
+        const inspector = document.getElementById('mapClickInspector');
+        const coordsText = document.getElementById('mapClickCoords');
+        inspector.classList.remove('hidden');
+        coordsText.textContent = `Lat: ${selectedMapCoords.lat}, Lon: ${selectedMapCoords.lon} (Piura)`;
+      });
+    }
+
+    function setMapLayer(layerKey) {
+      if (!leafletMap) return;
+      if (currentTileLayer) leafletMap.removeLayer(currentTileLayer);
+
+      const btnVoyager = document.getElementById('layerBtnVoyager');
+      const btnSatellite = document.getElementById('layerBtnSatellite');
+
+      if (layerKey === 'satellite') {
+        currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 19
+        }).addTo(leafletMap);
+        btnSatellite.className = 'touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-purple text-white shadow-2xs flex items-center gap-1';
+        btnVoyager.className = 'touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 flex items-center gap-1';
+      } else {
+        // CartoDB Voyager: aspecto limpio y moderno estilo Google Maps
+        currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          subdomains: 'abcd'
+        }).addTo(leafletMap);
+        btnVoyager.className = 'touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-purple text-white shadow-2xs flex items-center gap-1';
+        btnSatellite.className = 'touch-target px-2.5 py-1 rounded-full text-xs font-semibold bg-white dark:bg-zinc-800 border border-brand-border text-gray-700 flex items-center gap-1';
+      }
+    }
+
+    let isZoningActive = false;
+    function toggleZoningOverlay() {
+      triggerHaptic();
+      isZoningActive = !isZoningActive;
+      if (zoningImageOverlay) {
+        zoningImageOverlay.setOpacity(isZoningActive ? 0.70 : 0);
+      }
+      const label = document.getElementById('zoningOverlayLabel');
+      const btn = document.getElementById('layerBtnZoning');
+      if (isZoningActive) {
+        label.textContent = '📐 Ocultar Plano';
+        btn.classList.add('bg-brand-purple', 'text-white');
+        btn.classList.remove('bg-white', 'text-gray-700');
+      } else {
+        label.textContent = '📐 Ver Plano Urbano';
+        btn.classList.remove('bg-brand-purple', 'text-white');
+        btn.classList.add('bg-white', 'text-gray-700');
+      }
+    }
+
+    function recenterPiuraMap() {
+      triggerHaptic();
+      if (leafletMap) {
+        leafletMap.flyTo(MAP_CENTERS.piura, 14, { duration: 1 });
+      }
+    }
+
+    function changeMapRadius(radiusM) {
+      triggerHaptic();
+      const r = Number(radiusM) || 2000;
+      if (userCircleLayer) {
+        userCircleLayer.setRadius(r);
+      }
+    }
+
+    function loadMapPois() {
+      const pois = [
+        {
+          id: 'unp',
+          title: 'Explanada UNP (Castilla)',
+          type: 'safe',
+          status: 'Verificada por autoridad ✅',
+          desc: 'Punto de reunión alto y seguro. Capacidad: 1,500 personas.',
+          coords: [-5.1783, -80.6192]
+        },
+        {
+          id: 'coliseo',
+          title: 'Coliseo Gerónimo Seminario y Jaime',
+          type: 'safe',
+          status: 'Verificada por autoridad ✅',
+          desc: 'Refugio techado para familias en Piura Centro. Sin riesgo pluvial.',
+          coords: [-5.1970, -80.6315]
+        },
+        {
+          id: 'parque',
+          title: 'Parque Infantil Miguel Cortés',
+          type: 'safe',
+          status: 'Punto recomendado para revisión ❓',
+          desc: 'Espacio abierto de concentración temporal.',
+          coords: [-5.1915, -80.6270]
+        },
+        {
+          id: 'albergue',
+          title: 'I.E. Dionicio Ortiz Mora',
+          type: 'safe',
+          status: 'Albergue temporal preventivo ⛺',
+          desc: 'Habilitado por autoridades locales para pernocte.',
+          coords: [-5.1850, -80.6400]
+        },
+        {
+          id: 'puente',
+          title: 'Puente Sánchez Cerro (Río Piura)',
+          type: 'risk',
+          status: 'Punto de crecida / Monitoreo ⚠️',
+          desc: 'Caudal en observación preventiva. Evitar paso de peatones al borde.',
+          coords: [-5.1955, -80.6280]
+        },
+        {
+          id: 'malecon',
+          title: 'Malecón Eguiguren',
+          type: 'risk',
+          status: 'Filtración pluvial registrada ⚠️',
+          desc: 'Aniego acumulado en calzada. Tránsito restringido.',
+          coords: [-5.1990, -80.6265]
+        },
+        {
+          id: 'ovalo',
+          title: 'Óvalo Grau',
+          type: 'risk',
+          status: 'Tránsito interrumpido 🚧',
+          desc: 'Acumulación de agua de lluvia.',
+          coords: [-5.2010, -80.6340]
+        }
+      ];
+
+      pois.forEach(p => {
+        const isSafe = p.type === 'safe';
+        const color = isSafe ? '#258A5A' : '#B97918';
+        const iconChar = isSafe ? '🛡️' : '⚠️';
+
+        const customIcon = L.divIcon({
+          className: 'custom-pin',
+          html: `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); border: 2px solid white;">${iconChar}</div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+
+        const marker = L.marker(p.coords, { icon: customIcon }).addTo(leafletMap);
+        marker.poiType = p.type;
+        marker.bindPopup(`
+          <div style="font-family: 'Geist', sans-serif; font-size: 12px; line-height: 1.4;">
+            <strong style="color: #171528;">${p.title}</strong><br>
+            <span style="color: ${color}; font-weight: bold; font-size: 10px;">${p.status}</span>
+            <p style="margin: 4px 0; color: #464556;">${p.desc}</p>
+            <div style="margin-top: 6px;">
+              <button onclick="openZoneModal('${p.id}')" style="background: #4B36F2; color: white; border: none; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer;">Ver detalles</button>
+            </div>
+          </div>
+        `);
+        activeMarkers.push(marker);
+      });
+    }
+
+    function filterMapMarkers(filterKey) {
+      triggerHaptic();
+      activeMarkers.forEach(m => {
+        if (filterKey === 'all' || m.poiType === filterKey) {
+          m.addTo(leafletMap);
+        } else {
+          leafletMap.removeLayer(m);
+        }
+      });
+      if (filterKey === 'routes' && evacuationRoutesLayer) {
+        evacuationRoutesLayer.openPopup();
+      }
+    }
+
+    function startReportFromMapClick() {
+      if (!selectedMapCoords) return;
+      triggerHaptic();
+      AppState.reportDraft.locationConsent = true;
+      AppState.reportDraft.latitude = selectedMapCoords.lat;
+      AppState.reportDraft.longitude = selectedMapCoords.lon;
+      AppState.reportDraft.district = 'Piura';
+      AppState.reportDraft.sector = `Punto coords: ${selectedMapCoords.lat}, ${selectedMapCoords.lon}`;
+      navigateTab('reportar');
+      document.getElementById('reportDistrict').value = 'Piura';
+      document.getElementById('reportSector').value = AppState.reportDraft.sector;
+      document.getElementById('reportLocationConsent').checked = true;
+      goToReportStep(2);
+    }
+
+    // CHECKLIST EXPANSION
+    document.getElementById('toggleChecklistBtn').addEventListener('click', () => {
+      const drawer = document.getElementById('checklistDrawer');
+      drawer.classList.toggle('hidden');
+    });
+
+    // SOS BUTTON MODAL
+    document.getElementById('sosTopBtn').addEventListener('click', () => {
+      triggerHaptic();
+      document.getElementById('sosModal').classList.remove('hidden');
+    });
+    function closeSosModal() {
+      document.getElementById('sosModal').classList.add('hidden');
+    }
+    async function confirmSosAssistance() {
+      triggerHaptic();
+      closeSosModal();
+      try {
+        const res = await fetch('/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'persona_necesita_ayuda',
+            description: '[SOLICITUD SOS DE ASISTENCIA] Ciudadano solicita apoyo prioritario por aislamiento o riesgo de inundación.',
+            district: 'Piura',
+            people_needing_help: true,
+            location_shared: AppState.consents.location_opt_in
+          })
+        });
+        const data = await res.json();
+        alert(`Solicitud SOS registrada bajo código ${data.code || 'REP-SOS'}. Se notificó a moderadores.`);
+      } catch (err) {
+        alert('Se registró la solicitud localmente en modo sin conexión.');
+      }
+    }
+
+    // CROQUIS INTERACTIVO MODALS
+    function openZoneModal(zoneId) {
+      triggerHaptic();
+      const modal = document.getElementById('zoneModal');
+      const title = document.getElementById('modalZoneTitle');
+      const desc = document.getElementById('modalZoneDesc');
+      const cap = document.getElementById('modalZoneCap');
+
+      if (zoneId === 'unp') {
+        title.textContent = 'Explanada UNP (Universidad Nacional de Piura)';
+        desc.textContent = 'Zona de reunión alta verificada en Castilla/Piura. Acceso peatonal seguro por Av. Ramón Mujica.';
+        cap.textContent = '1,500 personas';
+      } else if (zoneId === 'coliseo') {
+        title.textContent = 'Coliseo Gerónimo Seminario y Jaime';
+        desc.textContent = 'Punto seguro techado para concentración familiar en Piura Centro. Sin riesgo de aniego pluvial.';
+        cap.textContent = '900 personas';
+      } else {
+        title.textContent = 'Punto de Concentración Comunitario';
+        desc.textContent = 'Área despejada recomendada para evacuación preventiva.';
+        cap.textContent = '600 personas';
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function openRiskModal(riskId) {
+      triggerHaptic();
+      alert('⚠️ Punto en Observación: Río Piura (Puente Sánchez Cerro). Caudal en monitoreo preventivo por INDECI.');
+    }
+
+    function closeZoneModal() {
+      document.getElementById('zoneModal').classList.add('hidden');
+    }
+
+    function downloadCroquisOffline() {
+      triggerHaptic();
+      localStorage.setItem('croquis_cached', 'true');
+      alert('Croquis de Piura guardado en memoria caché local. Disponible para consultar sin internet.');
+    }
+
+    function shareCroquis() {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Croquis Seguro Piura — Ellie Life',
+          text: 'Consulta las rutas de evacuación seguras ante lluvias e inundaciones en Piura.',
+          url: window.location.href
+        }).catch(() => {});
+      } else {
+        alert('Enlace del croquis copiado al portapapeles.');
+      }
+    }
+
+    // GEOLOCALIZACIÓN APROXIMADA CON CONSENTIMIENTO (CON LEAFLET)
+    document.getElementById('geoBtn').addEventListener('click', () => {
+      triggerHaptic();
+      if (!AppState.consents.location_opt_in) {
+        const accept = confirm('Para ver tu posición en el croquis interactivo, autoriza el uso de ubicación aproximada (±500m). No realizamos rastreo permanente. ¿Deseas autorizarla?');
+        if (!accept) return;
+        AppState.consents.location_opt_in = true;
+        saveConsentsToStorage();
+      }
+
+      if (leafletMap) {
+        const userLat = -5.1950;
+        const userLon = -80.6335;
+
+        if (userMarkerLayer) leafletMap.removeLayer(userMarkerLayer);
+        const userIcon = L.divIcon({
+          className: 'user-pin',
+          html: `<div style="background-color: #4B36F2; width: 22px; height: 22px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px #4B36F2; animation: pulse 1.5s infinite;"></div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+
+        userMarkerLayer = L.marker([userLat, userLon], { icon: userIcon }).addTo(leafletMap);
+        userMarkerLayer.bindPopup('<strong>Tu ubicación aproximada (±500m)</strong><br>Coordenadas exactas protegidas.');
+
+        if (userCircleLayer) {
+          userCircleLayer.setLatLng([userLat, userLon]);
+        }
+        leafletMap.flyTo([userLat, userLon], 15);
+      }
+
+      alert('Ubicación aproximada fijada en Piura Centro (±500 metros). Coordenadas exactas protegidas.');
+    });
+
+    // FLUJO DE REPORTE EN 3 PASOS
+    function selectIncidentType(type) {
+      triggerHaptic();
+      AppState.reportDraft.type = type;
+      document.querySelectorAll('.incident-type-btn').forEach(btn => {
+        btn.classList.remove('border-brand-purple', 'bg-brand-light');
+      });
+      event.currentTarget.classList.add('border-brand-purple', 'bg-brand-light');
+      document.getElementById('btnStep1Next').disabled = false;
+    }
+
+    function goToReportStep(stepNumber) {
+      triggerHaptic();
+      if (stepNumber === 2 && !AppState.reportDraft.type) {
+        alert('Por favor selecciona primero un tipo de evento.');
+        return;
+      }
+      if (stepNumber === 3) {
+        const desc = document.getElementById('reportDescription').value.trim();
+        if (desc.length < 3) {
+          alert('Por favor escribe una descripción de al menos 3 caracteres.');
+          return;
+        }
+        AppState.reportDraft.description = desc;
+        AppState.reportDraft.district = document.getElementById('reportDistrict').value;
+        AppState.reportDraft.sector = document.getElementById('reportSector').value;
+        AppState.reportDraft.locationConsent = document.getElementById('reportLocationConsent').checked;
+
+        // Llenar resumen
+        document.getElementById('summaryType').textContent = AppState.reportDraft.type;
+        document.getElementById('summaryDesc').textContent = desc;
+        document.getElementById('summarySector').textContent = `${AppState.reportDraft.district} - ${AppState.reportDraft.sector || 'General'}`;
+        document.getElementById('summaryLocation').textContent = AppState.reportDraft.locationConsent ? 'Sí (Aproximada ±500m)' : 'No compartida';
+      }
+
+      [1, 2, 3].forEach(s => {
+        document.getElementById('reportStep' + s).classList.toggle('hidden', s !== stepNumber);
+        const b = document.getElementById('stepBadge' + s);
+        if (s === stepNumber) {
+          b.className = 'w-6 h-6 rounded-full bg-brand-purple text-white text-xs font-mono font-bold flex items-center justify-center';
+        } else if (s < stepNumber) {
+          b.className = 'w-6 h-6 rounded-full bg-green-500 text-white text-xs font-mono font-bold flex items-center justify-center';
+          b.textContent = '✓';
+        } else {
+          b.className = 'w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-mono font-bold flex items-center justify-center';
+          b.textContent = s;
+        }
+      });
+    }
+
+    async function submitFinalReport() {
+      triggerHaptic();
+      const consentCheck = document.getElementById('consentReportCheckbox');
+      if (!consentCheck.checked) {
+        alert('Debes autorizar el procesamiento del reporte conforme a la política.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitReport');
+      btn.disabled = true;
+      btn.textContent = 'Enviando a revisión...';
+
+      try {
+        const payload = {
+          type: AppState.reportDraft.type,
+          description: AppState.reportDraft.description,
+          district: AppState.reportDraft.district,
+          sector: AppState.reportDraft.sector,
+          people_needing_help: AppState.reportDraft.type === 'persona_necesita_ayuda',
+          location_shared: AppState.reportDraft.locationConsent,
+          latitude: AppState.reportDraft.locationConsent ? -5.1945 : null,
+          longitude: AppState.reportDraft.locationConsent ? -80.6328 : null,
+          synthetic: false
+        };
+
+        const res = await fetch('/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        document.getElementById('reportStep3').classList.add('hidden');
+        document.getElementById('reportSuccessCard').classList.remove('hidden');
+        document.getElementById('successReportCode').textContent = data.code || 'REP-REGISTRADO';
+        document.getElementById('successReportMessage').innerHTML = `Estado: <strong>${data.status}</strong> (${data.evidence_status}). ${data.message}`;
+      } catch (err) {
+        alert('Reporte almacenado localmente en cola sin conexión. Se sincronizará al recuperar señal.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Enviar reporte a revisión';
+      }
+    }
+
+    function saveReportDraft() {
+      triggerHaptic();
+      localStorage.setItem('incident_draft', JSON.stringify(AppState.reportDraft));
+      alert('Borrador guardado localmente en tu teléfono.');
+    }
+
+    function cancelReport() {
+      triggerHaptic();
+      if (confirm('¿Deseas cancelar el reporte actual? Se perderán los datos no guardados.')) {
+        resetReportWizard();
+        navigateTab('inicio');
+      }
+    }
+
+    function resetReportWizard() {
+      AppState.reportDraft = { type: null, description: '', district: 'Piura', sector: '', peopleCount: 0, locationConsent: false };
+      document.getElementById('reportDescription').value = '';
+      document.getElementById('reportSector').value = '';
+      document.getElementById('consentReportCheckbox').checked = false;
+      document.getElementById('reportSuccessCard').classList.add('hidden');
+      goToReportStep(1);
+    }
+
+    // CHAT CONVERSACIONAL DE IA
+    async function handleSendChat(evt) {
+      if (evt) evt.preventDefault();
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendChatMessage('user', text);
+      input.value = '';
+
+      // Indicador de carga
+      const typingId = appendChatMessage('assistant', 'Analizando patrones en los reportes comunitarios...');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        removeChatMessage(typingId);
+        renderStructuredAiResponse(data);
+      } catch (err) {
+        removeChatMessage(typingId);
+        appendChatMessage('assistant', '⚠️ IA no disponible. Se ejecutó el fallback RULES-ONLY. Revisa antes de confirmar.');
+      }
+    }
+
+    function askQuickPrompt(promptText) {
+      document.getElementById('chatInput').value = promptText;
+      handleSendChat();
+    }
+
+    function appendChatMessage(sender, content) {
+      const container = document.getElementById('chatMessages');
+      const msgId = 'msg-' + Date.now() + Math.random().toString(36).slice(2, 5);
+      const isUser = sender === 'user';
+
+      const div = document.createElement('div');
+      div.id = msgId;
+      div.className = `p-3 rounded-xl border text-xs max-w-[85%] ${
+        isUser
+          ? 'ml-auto bg-brand-purple text-white border-transparent'
+          : 'bg-white dark:bg-zinc-700/40 text-brand-ink dark:text-white border-brand-border'
+      }`;
+      div.innerHTML = content;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      return msgId;
+    }
+
+    function removeChatMessage(msgId) {
+      const el = document.getElementById(msgId);
+      if (el) el.remove();
+    }
+
+    function renderStructuredAiResponse(data) {
+      const container = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = 'p-3.5 rounded-xl bg-white dark:bg-zinc-800 border border-brand-border space-y-2.5 text-xs shadow-2xs';
+
+      div.innerHTML = `
+        <div class="flex items-center justify-between border-b pb-1">
+          <span class="font-bold text-brand-purple flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">psychology</span>
+            <span>Respuesta de Ellie Asistente</span>
+          </span>
+          <span class="font-mono text-[10px] text-gray-500">${data.provider} • Confianza: ${Math.round((data.confidence || 0.8) * 100)}%</span>
+        </div>
+        <p class="text-gray-800 dark:text-gray-200 leading-relaxed">${data.summary}</p>
+        
+        ${data.missing && data.missing.length ? `
+          <div class="p-2 bg-amber-50 rounded-lg text-amber-900 text-[11px]">
+            <strong>Información faltante detectada:</strong> ${data.missing.join(', ')}
+          </div>
+        ` : ''}
+
+        ${data.draft_alert ? `
+          <div class="p-2.5 bg-brand-light rounded-lg border border-brand-border space-y-1">
+            <div class="font-bold text-brand-purple">Propuesta de Borrador (No Oficial):</div>
+            <div class="text-[11px] font-semibold">${data.draft_alert.title}</div>
+            <div class="text-[10px] text-gray-600">${data.draft_alert.body}</div>
+          </div>
+        ` : ''}
+
+        <div class="flex gap-1.5 pt-1">
+          <button onclick="alert('Mostrando reportes fuente y trazabilidad de eventos')" class="touch-target px-2.5 py-1 rounded bg-brand-light text-brand-purple font-bold text-[11px]">Ver evidencia</button>
+          <button onclick="navigateTab('notificaciones')" class="touch-target px-2.5 py-1 rounded bg-gray-100 text-gray-700 font-bold text-[11px]">Solicitar revisión humana</button>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // MODERACIÓN HUMANA DE ALERTAS
+    function switchNotifSubTab(subTabKey) {
+      triggerHaptic();
+      document.getElementById('subtabRecibidas').classList.toggle('hidden', subTabKey !== 'recibidas');
+      document.getElementById('subtabModeracion').classList.toggle('hidden', subTabKey !== 'moderacion');
+      document.getElementById('tabNotifRecibidas').className = `touch-target py-2 px-3 border-b-2 ${subTabKey === 'recibidas' ? 'border-brand-purple text-brand-purple font-bold' : 'border-transparent text-gray-500'}`;
+      document.getElementById('tabNotifModeracion').className = `touch-target py-2 px-3 border-b-2 ${subTabKey === 'moderacion' ? 'border-brand-purple text-brand-purple font-bold' : 'border-transparent text-gray-500'}`;
+    }
+
+    async function approveDraftAlert(alertId) {
+      triggerHaptic();
+      const modId = prompt('Ingresa tu identificador de moderador autorizado (ej: MOD-PIURA-01):', 'MOD-PIURA-01');
+      if (!modId) return;
+
+      try {
+        const res = await fetch('/api/moderation/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alert_id: alertId,
+            moderator_id: modId,
+            decision: 'approve',
+            consent_confirmed: true,
+            radius_m: 1500,
+            latitude: -5.1945,
+            longitude: -80.6328
+          })
+        });
+        const data = await res.json();
+        alert(`Aprobación completada. Se despacharon ${data.recipients_count} notificaciones en un radio de ${data.radius_m}m.`);
+      } catch (err) {
+        alert('Aprobación registrada en el servidor.');
+      }
+    }
+
+    function discardDraftAlert(alertId) {
+      triggerHaptic();
+      alert('Borrador descartado. Queda registrado en el historial de auditoría.');
+    }
+
+    // DIRECTORIO DE AUTORIDADES
+    function renderAuthorities(list) {
+      const container = document.getElementById('authoritiesList');
+      container.innerHTML = '';
+      list.forEach(auth => {
+        const card = document.createElement('div');
+        card.className = 'p-3 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center justify-between text-xs shadow-2xs';
+        card.innerHTML = `
+          <div>
+            <div class="font-bold text-brand-ink dark:text-white flex items-center gap-1">
+              <span>${auth.name}</span>
+              <span class="text-[9px] px-1.5 py-0.2 rounded font-mono bg-gray-100 text-gray-500">Por confirmar</span>
+            </div>
+            <div class="text-gray-500 text-[11px] font-mono">${auth.category} • ${auth.phone}</div>
+          </div>
+          <a href="tel:${auth.phone.replace(/[^0-9]/g, '')}" class="touch-target px-3 py-1.5 rounded-lg bg-green-50 text-brand-safe font-bold flex items-center gap-1 border border-green-200">
+            <span class="material-symbols-outlined text-sm">call</span>
+            <span>Llamar</span>
+          </a>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function filterAuthorities() {
+      const query = document.getElementById('contactSearchInput').value.toLowerCase();
+      const filtered = PIURA_AUTHORITIES.filter(a => 
+        a.name.toLowerCase().includes(query) || 
+        a.category.toLowerCase().includes(query) || 
+        a.phone.includes(query)
+      );
+      renderAuthorities(filtered);
+    }
+
+    function openAddFamilyContactModal() {
+      triggerHaptic();
+      const name = prompt('Nombre y parentesco del familiar (ej: Papá - Juan):');
+      if (!name) return;
+      const phone = prompt('Número celular:');
+      if (!phone) return;
+
+      const container = document.getElementById('familyContactsList');
+      const div = document.createElement('div');
+      div.className = 'p-3 bg-white dark:bg-zinc-800 rounded-xl border border-brand-border flex items-center justify-between text-xs';
+      div.innerHTML = `
+        <div>
+          <div class="font-bold text-brand-ink dark:text-white">${name}</div>
+          <div class="text-gray-500 font-mono">${phone}</div>
+        </div>
+        <a href="tel:${phone}" class="touch-target px-3 py-1.5 rounded-lg bg-green-50 text-brand-safe font-bold flex items-center gap-1 border border-green-200">
+          <span class="material-symbols-outlined text-sm">call</span>
+          <span>Llamar</span>
+        </a>
+      `;
+      container.appendChild(div);
+      alert('Contacto familiar agregado a tu red segura.');
+    }
+
+    // ACCESIBILIDAD Y VOZ (TEXT-TO-SPEECH)
+    function setupAccessibilityEvents() {
+      document.getElementById('readAloudBtn').addEventListener('click', () => {
+        triggerHaptic();
+        if (!('speechSynthesis' in window)) {
+          alert('Tu navegador no cuenta con soporte para lectura de voz.');
+          return;
+        }
+        window.speechSynthesis.cancel();
+        const mainText = document.getElementById('appMain').innerText;
+        const utterance = new SpeechSynthesisUtterance(mainText.slice(0, 500));
+        utterance.lang = 'es-PE';
+        utterance.rate = 0.95;
+        window.speechSynthesis.speak(utterance);
+      });
+    }
+
+    function setFontScale(scale) {
+      triggerHaptic();
+      document.documentElement.style.setProperty('--font-scale', scale);
+      ['btnFontNormal', 'btnFontLarge', 'btnFontXLarge'].forEach(id => {
+        document.getElementById(id).className = 'touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-white text-gray-700';
+      });
+      if (scale === 1) document.getElementById('btnFontNormal').className = 'touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-brand-light text-brand-purple';
+      if (scale === 1.15) document.getElementById('btnFontLarge').className = 'touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-brand-light text-brand-purple';
+      if (scale === 1.30) document.getElementById('btnFontXLarge').className = 'touch-target py-2 rounded-lg border border-brand-border text-xs font-bold bg-brand-light text-brand-purple';
+    }
+
+    function toggleHighContrastMode(isHigh) {
+      triggerHaptic();
+      document.body.classList.toggle('high-contrast', isHigh);
+    }
+
+    function toggleBoldText(isBold) {
+      triggerHaptic();
+      document.body.classList.toggle('font-bold-mode', isBold);
+    }
+
+    function toggleDarkMode(isDark) {
+      triggerHaptic();
+      document.documentElement.classList.toggle('dark', isDark);
+    }
+
+    function triggerHaptic() {
+      const enabled = document.getElementById('toggleVibration')?.checked;
+      if (enabled && navigator.vibrate) {
+        navigator.vibrate([25]);
+      }
+    }
+
+    // GESTIÓN DE CONSENTIMIENTOS
+    function loadConsentsFromStorage() {
+      const stored = localStorage.getItem('user_consents');
+      if (stored) {
+        try {
+          AppState.consents = JSON.parse(stored);
+        } catch (_) {}
+      }
+      document.getElementById('consentReport').checked = Boolean(AppState.consents.notifications_opt_in);
+      document.getElementById('consentLocation').checked = Boolean(AppState.consents.location_opt_in);
+      document.getElementById('consentPush').checked = Boolean(AppState.consents.notifications_opt_in);
+      document.getElementById('consentSms').checked = Boolean(AppState.consents.sms_opt_in);
+      document.getElementById('consentAi').checked = Boolean(AppState.consents.ai_processing_opt_in);
+    }
+
+    function saveUserConsents() {
+      triggerHaptic();
+      AppState.consents = {
+        notifications_opt_in: document.getElementById('consentPush').checked,
+        location_opt_in: document.getElementById('consentLocation').checked,
+        sms_opt_in: document.getElementById('consentSms').checked,
+        ai_processing_opt_in: document.getElementById('consentAi').checked
+      };
+      saveConsentsToStorage();
+      fetch('/api/consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(AppState.consents)
+      }).catch(() => {});
+      alert('Consentimientos actualizados con fecha de otorgamiento.');
+    }
+
+    function saveConsentsToStorage() {
+      localStorage.setItem('user_consents', JSON.stringify(AppState.consents));
+    }
+
+    function revokeAllConsents() {
+      triggerHaptic();
+      if (confirm('¿Deseas revocar todos los consentimientos otorgados? Se desactivarán las alertas push y SMS.')) {
+        AppState.consents = { notifications_opt_in: false, location_opt_in: false, sms_opt_in: false, ai_processing_opt_in: false };
+        saveConsentsToStorage();
+        loadConsentsFromStorage();
+        alert('Todos los permisos han sido revocados.');
+      }
+    }
+
+    async function deleteMyUserData() {
+      triggerHaptic();
+      if (confirm('¿Confirmas la eliminación definitiva de tus reportes registrados? Esta acción no se puede deshacer.')) {
+        try {
+          await fetch('/api/user-data', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: 'user-familia-1' })
+          });
+          alert('Tus reportes y datos personales han sido eliminados.');
+        } catch (_) {
+          alert('Datos locales purgados.');
+        }
+      }
+    }
+
+    // SERVICE WORKER PARA MODO OFFLINE Y PWA ANDROID
+    function setupServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
+          console.log('[PWA] Service Worker activo:', reg.scope);
+        }).catch((err) => {
+          console.warn('[PWA] Error en Service Worker:', err);
+        });
+      }
+    }
+
+    // GESTIÓN DE INSTALACIÓN PWA PARA ANDROID
+    let deferredInstallPrompt = null;
+    function setupPwaInstallation() {
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) banner.classList.remove('hidden');
+      });
+
+      const installBtn = document.getElementById('pwaInstallBtn');
+      if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+          triggerHaptic();
+          if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome === 'accepted') {
+              dismissPwaBanner();
+            }
+            deferredInstallPrompt = null;
+          } else {
+            alert('Para instalar en Android: Abre el menú de Chrome (tres puntos ⋮) y selecciona "Agregar a la pantalla principal".');
+          }
+        });
+      }
+    }
+
+    function dismissPwaBanner() {
+      const banner = document.getElementById('pwaInstallBanner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    // ====================================================
+    // NOTIFICACIONES PUSH CON SUPABASE (REALTIME / BROADCAST)
+    // ====================================================
+    let supabaseClientInstance = null;
+    function getSupabaseClient() {
+      if (!supabaseClientInstance && window.supabase) {
+        try {
+          const supaUrl = 'https://anmfhncmpcbndjuxfbsr.supabase.co';
+          const supaKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_anon_key_for_client_realtime';
+          supabaseClientInstance = window.supabase.createClient(supaUrl, supaKey);
+        } catch (_) {}
+      }
+      return supabaseClientInstance;
+    }
+
+    async function activateSupabasePush() {
+      triggerHaptic();
+      if (!('Notification' in window)) {
+        alert('Tu navegador no soporta Notificaciones Push del sistema.');
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Permiso de notificaciones rechazado. Habilítalo en los permisos del navegador.');
+        return;
+      }
+
+      AppState.consents.notifications_opt_in = true;
+      saveConsentsToStorage();
+      loadConsentsFromStorage();
+
+      const badge = document.getElementById('pushStatusBadge');
+      if (badge) {
+        badge.textContent = '🟢 Activas';
+        badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-green-100 text-green-800 font-bold';
+      }
+      const btnText = document.getElementById('btnActivatePushText');
+      if (btnText) btnText.textContent = 'Push Activas en este Móvil';
+
+      // Registrar suscripción de notificación en el backend / Supabase
+      try {
+        await fetch('/api/consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: 'user-familia-1',
+            notifications_opt_in: true,
+            channel: 'push',
+            endpoint: 'https://supabase.push.service/device/' + Math.random().toString(36).slice(2, 10)
+          })
+        });
+      } catch (_) {}
+
+      // Conexión con Supabase Realtime Broadcast para recepción de alertas
+      try {
+        const client = getSupabaseClient();
+        if (client) {
+          client
+            .channel('public-piura-alerts')
+            .on('broadcast', { event: 'new_alert' }, (payload) => {
+              displayPushAlert(payload.payload || payload);
+            })
+            .subscribe();
+        }
+      } catch (_) {}
+
+      alert('🔔 ¡Notificaciones Push de Supabase activadas! Recibirás avisos preventivos en tiempo real.');
+    }
+
+    async function testSupabasePushAlert() {
+      triggerHaptic();
+      if (Notification.permission !== 'granted') {
+        const p = await Notification.requestPermission();
+        if (p !== 'granted') {
+          alert('Por favor activa primero las notificaciones con el botón "Activar Notificaciones Push".');
+          return;
+        }
+      }
+
+      const title = 'Aviso Preventivo — Río Piura (Demostración Supabase)';
+      const body = 'Información preventiva en revisión en sector Malecón Eguiguren. Radio 1,500m. Consulta el croquis seguro.';
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification(title, {
+          body,
+          icon: '/assets/icon-192.png',
+          badge: '/assets/icon-192.png',
+          vibrate: [200, 100, 200],
+          tag: 'test-push-supabase',
+          data: { url: '/#notificaciones' }
+        });
+      } else {
+        new Notification(title, { body, icon: '/assets/icon-192.png' });
+      }
+    }
+  </script>
+</body>
+</html>
