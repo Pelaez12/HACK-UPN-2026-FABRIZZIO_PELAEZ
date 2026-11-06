@@ -3,6 +3,15 @@
 > **Solución comunitaria con Inteligencia Artificial responsable ante el Fenómeno El Niño**  
 > Hackathon UPN 2026 • Categoría: Comunidades preparadas, resilientes y sostenibles.
 
+- **Equipo:** GRUPO ELLIE (Equipo 5)
+- **Integrantes:**
+  - FABRIZZIO PAOLO PELAEZ BAUTISTA
+  - OSIRIS DE LOS ANGELES MEDINA ACEVEDO
+  - LUIS ADRIANO CABALLERO OLIVERA
+  - CAROLINE SOFIA SOSA LEDESMA
+- **Enlace a demo:** https://hack-upn-2026-fabrizzio-pelaez.fabrizziopelaez91.workers.dev/
+- **Pull Request Oficial Hackathon:** https://github.com/MyBotsLatam/Hackathon-UPN-IA/pull/6
+
 ---
 
 ## 📌 Repositorios Oficiales del Proyecto
